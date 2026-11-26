@@ -1,0 +1,40 @@
+---
+title: Persistence
+description: Save each loop step and rebuild the loop from that record.
+icon: Database
+---
+
+Loops stay in memory until you pass a `loopRepository`. `save` runs after each step. `findById` returns the loop `getLoop` reads, including after a restart. `Loop.rehydrate` rebuilds a loop from the record you stored.
+
+`writeRecord` and `readRecord` are yours: a file, a table, or anything the next process can read.
+
+```ts
+import { initAgentModule, Loop, type LoopRecord } from '@jigjoy/mozaik-agent';
+
+initAgentModule({
+  loopRepository: {
+    async save(loop) {
+      const record: LoopRecord = {
+        id: loop.id,
+        assignee: loop.assignee,
+        goal: loop.goal,
+        state: loop.state,
+        message: loop.message,
+        pendingInstruction: loop.pendingInstruction,
+        completedInstructions: loop.completedInstructions,
+      };
+      await writeRecord(loop.id, record);
+    },
+    async findById(id) {
+      const record = await readRecord(id);
+      return record ? Loop.rehydrate(record) : undefined;
+    },
+  },
+});
+```
+
+Pass `agentRepository` the same way when the agent should outlive the process. It saves an agent and finds it by id. A second `initAgentModule()` throws.
+
+<Cards>
+  <Card title="Policy" href="/agent/policy" description="Drive advance and end from a policy." />
+</Cards>

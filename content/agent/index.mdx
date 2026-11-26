@@ -1,0 +1,60 @@
+---
+title: Introduction
+description: A persistable agent loop you pause at a breakpoint, inspect, and continue.
+icon: Bot
+---
+
+Mozaik Agent is the agent runtime. A loop keeps a goal and the work already done. Before an inference or a tool call runs, the loop stops at a breakpoint and waits. Your application inspects that step, runs it, declines it, or leaves it until later. The loop can be saved and picked up after a restart.
+
+The package is [`@jigjoy/mozaik-agent`](https://www.npmjs.com/package/@jigjoy/mozaik-agent). Policies use [`@jigjoy/mozaik-rule-engine`](https://github.com/jigjoy-ai/mozaik-rule-engine), the same decorators as [Mozaik Network](/network/decorators).
+
+```bash
+npm install @jigjoy/mozaik-agent
+```
+
+Source: [jigjoy-ai/mozaik-agent](https://github.com/jigjoy-ai/mozaik-agent).
+
+Call `initAgentModule()` once in the process, then take the functions from `resolveAgentModule()`.
+
+| Function | Role |
+| --- | --- |
+| `createAgent({ name, instruction, tools })` | Register an agent. |
+| `createLoop({ agentId, goal })` | Start a loop. The agent is the assignee. |
+| `setBreakpoint({ loopId, instruction })` | Place the next inference or tool call. A loop holds one pending instruction. |
+| `advanceLoop({ loopId })` | Run the pending instruction and record the result. |
+| `getLoop(id)` | Read the loop, including the pending instruction and the ones already completed. |
+| `pauseLoop({ loopId, reason })` | Set the state to `paused`. |
+| `endLoop({ loopId, message })` | Set the state to `completed` and store `message`. |
+| `registerTool(name, tool)` | The function `advanceLoop` calls for a `tool_call`. |
+
+A provider reads its key from the environment: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY`. Pass `inferenceRunnerConfig.supportedModels` to `initAgentModule` to bring your own models.
+
+## The loop
+
+A loop is one execution toward a goal. It keeps:
+
+| Field | What it holds |
+| --- | --- |
+| `goal` | What the agent is working toward. |
+| `assignee` | The agent id passed to `createLoop`. |
+| `pendingInstruction` | The breakpoint. Inference or one tool call, waiting to run. |
+| `completedInstructions` | The steps already run, each with its result. |
+| `state` | `idle`, `awaiting_result`, `paused`, `completed`, or `stopped`. |
+| `message` | The text stored by `endLoop`. |
+
+A new loop is `idle`. `pauseLoop` sets `paused`. `endLoop` sets `completed`. Your application places every breakpoint.
+
+```text
+1. createLoop with a goal
+2. setBreakpoint with an inference
+3. advanceLoop, then read the result
+4. setBreakpoint with a tool call, or end the loop
+5. advanceLoop runs the tool and records its output
+```
+
+<Cards>
+  <Card title="A small loop" href="/agent/quickstart" description="One inference, paused before it runs." />
+  <Card title="Tool calls" href="/agent/tools" description="Approve a tool call before it runs." />
+  <Card title="Persistence" href="/agent/persistence" description="Save a loop and read it back after a restart." />
+  <Card title="Policy" href="/agent/policy" description="Choose advance or end with a rule." />
+</Cards>

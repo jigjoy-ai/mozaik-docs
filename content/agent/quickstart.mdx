@@ -1,0 +1,51 @@
+---
+title: A small loop
+description: Create an agent, pause before inference, then advance and end the loop.
+icon: Play
+---
+
+One inference, paused before it runs. Anthropic requires `maxOutputTokens` on every request. The model name selects the provider.
+
+```ts
+import { initAgentModule, resolveAgentModule } from '@jigjoy/mozaik-agent';
+
+initAgentModule();
+const { createAgent, createLoop, setBreakpoint, advanceLoop, getLoop, endLoop } = resolveAgentModule();
+
+const agent = await createAgent({
+  name: 'assistant',
+  instruction: 'You are a helpful assistant.',
+  tools: [],
+});
+
+const loop = await createLoop({
+  agentId: agent.id,
+  goal: 'Explain breakpoints in one sentence.',
+});
+
+await setBreakpoint({
+  loopId: loop.id,
+  instruction: {
+    type: 'inference',
+    parameters: {
+      model: 'claude-sonnet-5-5',
+      maxOutputTokens: 1024,
+      context: { items: [{ type: 'user_message', text: loop.goal }] },
+    },
+  },
+});
+
+// Pending here. Inspect it, change it, or leave it.
+console.log((await getLoop(loop.id)).pendingInstruction?.type);
+
+await advanceLoop({ loopId: loop.id });
+
+const { completedInstructions } = await getLoop(loop.id);
+console.log(completedInstructions[0]?.result);
+
+await endLoop({ loopId: loop.id, message: 'Explained.' });
+```
+
+<Cards>
+  <Card title="Tool calls" href="/agent/tools" description="Stop at a tool call and decide whether it runs." />
+</Cards>

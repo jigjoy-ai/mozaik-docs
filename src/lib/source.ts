@@ -1,7 +1,7 @@
 import { InferPageType, loader } from 'fumadocs-core/source';
-import { docs } from 'collections/server';
+import { agent, docs, network } from 'collections/server';
 import { lucideIconsPlugin } from 'fumadocs-core/source/lucide-icons';
-import { docsContentRoute, docsRoute } from './shared';
+import { agentContentRoute, docsContentRoute, docsRoute, networkContentRoute } from './shared';
 
 export const source = loader({
   source: docs.toFumadocsSource(),
@@ -9,16 +9,40 @@ export const source = loader({
   plugins: [lucideIconsPlugin()],
 });
 
-export function getPageMarkdownUrl(page: InferPageType<typeof source>) {
-  const segments = [...page.slugs, 'content.md'];
+export const networkSource = loader({
+  source: network.toFumadocsSource(),
+  baseUrl: '/network',
+  plugins: [lucideIconsPlugin()],
+});
 
+export const agentSource = loader({
+  source: agent.toFumadocsSource(),
+  baseUrl: '/agent',
+  plugins: [lucideIconsPlugin()],
+});
+
+export function getPageMarkdownUrl(page: InferPageType<typeof source>) {
   return {
-    segments,
-    url: `${docsContentRoute}/${segments.join('/')}`,
+    segments: [...page.slugs, 'content.md'],
+    url: contentMarkdownUrl(docsContentRoute, page),
   };
 }
 
-export async function getLLMText(page: InferPageType<typeof source>) {
+export function contentMarkdownUrl(base: string, page: { slugs: string[] }) {
+  return `${base}/${[...page.slugs, 'content.md'].join('/')}`;
+}
+
+export { networkContentRoute, agentContentRoute };
+
+type MarkdownPage = {
+  url: string;
+  data: {
+    title: string;
+    getText: (mode: 'processed') => Promise<string>;
+  };
+};
+
+export async function getLLMText(page: MarkdownPage) {
   const processed = await page.data.getText('processed');
 
   return `# ${page.data.title} (${page.url})

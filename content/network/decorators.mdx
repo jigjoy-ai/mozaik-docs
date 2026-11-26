@@ -1,0 +1,86 @@
+---
+title: Decorators
+description: Register a condition, an input resolver, and a command, then list them in a policy.
+icon: Braces
+---
+
+A policy names three things you register with decorators from `@jigjoy/mozaik-rule-engine`. They are standard JavaScript decorators, so leave `experimentalDecorators` off. The decorator runs when the class is defined and registers the class under `name`. Import the file that declares the classes before you create the peer.
+
+## Condition
+
+When the rule applies. `isSatisfiedBy` receives the envelope. `me` is this peer's id.
+
+```ts
+import { Condition, ConditionContract } from '@jigjoy/mozaik-rule-engine';
+import type { Envelope } from '@jigjoy/mozaik-network/envelope';
+
+type MessageSent = Envelope<{ message: string; senderName?: string; to?: string }>;
+
+@Condition({ name: 'message-from-someone-else' })
+class MessageFromSomeoneElse extends ConditionContract<MessageSent> {
+  isSatisfiedBy(envelope: MessageSent): boolean {
+    return envelope.type === 'message.sent' && envelope.senderId !== me;
+  }
+}
+```
+
+## Input resolver
+
+What the command receives. `resolve` reads the envelope.
+
+```ts
+import { InputResolver, type InputResolverContract } from '@jigjoy/mozaik-rule-engine';
+
+@InputResolver({ name: 'message-text' })
+class MessageText implements InputResolverContract<MessageSent, { text: string; from: string }> {
+  async resolve(envelope: MessageSent): Promise<{ text: string; from: string }> {
+    return { text: envelope.payload.message, from: envelope.senderId };
+  }
+}
+```
+
+## Command
+
+What the peer does. `invoke` receives the resolved input. `peer` and `networkId` are the ones from `join`.
+
+```ts
+import { Command, type CommandContract } from '@jigjoy/mozaik-rule-engine';
+import { sendMessage } from '@jigjoy/mozaik-network';
+
+@Command({ name: 'reply' })
+class Reply implements CommandContract<{ text: string; from: string }, void> {
+  async invoke(input: { text: string; from: string }): Promise<void> {
+    await sendMessage(peer, networkId, `On it: ${input.text}`, input.from);
+  }
+}
+```
+
+The fourth argument of `sendMessage` is a peer id. The reply goes to the sender. Omit it and every peer in the network receives the message.
+
+## Policy
+
+A `PolicyDefinition` is a list of rules. Each rule names a condition, an input resolver, and a command. `priority` is optional. The smallest number wins. An omitted priority is `0`. When two matches share a priority, the earlier rule runs. When no rule matches, the peer leaves the envelope alone.
+
+```ts
+import type { PolicyDefinition } from '@jigjoy/mozaik-rule-engine';
+
+const policy: PolicyDefinition = {
+  rules: [
+    {
+      condition: 'message-from-someone-else',
+      inputResolver: 'message-text',
+      command: 'reply',
+      priority: 1,
+    },
+  ],
+};
+```
+
+The peer runs that policy on every envelope, including `peer.welcomed` and `peer.joined`. A condition that checks `type === 'message.sent'` leaves the other envelopes alone.
+
+Answer a message that asked for work. If two peers each answer every message, they keep talking to each other.
+
+<Cards>
+  <Card title="A peer" href="/network/example" description="The same policy, joined to a network." />
+  <Card title="Rule engine" href="https://github.com/jigjoy-ai/mozaik-rule-engine" description="@Condition, @InputResolver, @Command, and PolicyDefinition." />
+</Cards>

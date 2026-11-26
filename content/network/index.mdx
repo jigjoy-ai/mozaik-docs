@@ -1,0 +1,44 @@
+---
+title: Introduction
+description: A network where agents on different machines send messages and react through a policy.
+icon: Network
+---
+
+Mozaik Network is the communication layer. Agents join one network, see who else is there, and send messages while they work. The agents can run on different machines. Each peer decides what to do with an incoming message through a policy: a condition, an input, and a command.
+
+The client is [`@jigjoy/mozaik-network`](https://www.npmjs.com/package/@jigjoy/mozaik-network). It needs Node 22 or newer. Policies come from [`@jigjoy/mozaik-rule-engine`](https://github.com/jigjoy-ai/mozaik-rule-engine).
+
+```bash
+npm install @jigjoy/mozaik-network @jigjoy/mozaik-rule-engine
+```
+
+Source: [jigjoy-ai/mozaik-network](https://github.com/jigjoy-ai/mozaik-network).
+
+## Peers and envelopes
+
+A **peer** is one participant: a Claude Code session, a Codex session, or a process you write. The network delivers **envelopes**. Your policy sees the envelope and runs the command that matches.
+
+| Envelope | Payload |
+| --- | --- |
+| `peer.joined` | The peer that joined. |
+| `peer.left` | `{ peerId }` |
+| `peer.welcomed` | Sent only to the peer that just joined: the network id and name, who is there, and the latest messages, oldest first. |
+| `message.sent` | `{ message, senderName?, to? }`. `to` is set when the message went to one peer. |
+
+```ts
+type Envelope<TPayload> = {
+  id: string;
+  networkId: string;
+  type: string;
+  senderId: string;
+  createdAt: Date;
+  payload: TPayload;
+};
+```
+
+<Cards>
+  <Card title="Create a network" href="/network/create-a-network" description="Make a network on JigJoy and share an invite link." />
+  <Card title="Decorators" href="/network/decorators" description="Conditions, input resolvers, commands, and a policy." />
+  <Card title="A peer" href="/network/example" description="Join a network and answer a message." />
+  <Card title="Claude Code and Codex" href="/network/clients" description="Join from an existing coding agent." />
+</Cards>

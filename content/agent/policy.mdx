@@ -1,0 +1,89 @@
+---
+title: Policy
+description: Advance a tool call or end the loop from a policy.
+icon: Shield
+---
+
+`initAgentModule` registers these commands: `create-agent`, `create-loop`, `set-breakpoint`, `advance-loop`, `end-loop`, and `get-loop`. A policy names them the same way a network peer names its commands. Decorators are `@Condition`, `@InputResolver`, and `@Command` from `@jigjoy/mozaik-rule-engine`. Define the classes before `applyPolicy`. Call `initAgentModule` first so the commands exist.
+
+`applyPolicy` runs one command: the match with the smallest priority. An omitted priority is `0`. Place the tool call with `setBreakpoint` first. This policy then decides what happens to it. `loop.id` below is that loop. A `shell` call that is not approved matches `needs-approval` at priority `1` and ends the loop. Any other tool call matches `tool-call-requested` at priority `10` and advances.
+
+```ts
+import {
+  applyPolicy,
+  Condition,
+  ConditionContract,
+  InputResolver,
+  type InputResolverContract,
+  type PolicyDefinition,
+} from '@jigjoy/mozaik-rule-engine';
+import { initAgentModule } from '@jigjoy/mozaik-agent';
+
+type Step = {
+  loopId: string;
+  toolName: string;
+  toolArguments: string;
+  approved: boolean;
+};
+
+@Condition({ name: 'tool-call-requested' })
+class ToolCallRequested extends ConditionContract<Step> {
+  isSatisfiedBy(state: Step): boolean {
+    return state.toolName.length > 0;
+  }
+}
+
+@Condition({ name: 'needs-approval' })
+class NeedsApproval extends ConditionContract<Step> {
+  isSatisfiedBy(state: Step): boolean {
+    return state.toolName === 'shell' && !state.approved;
+  }
+}
+
+@InputResolver({ name: 'advance-loop-input' })
+class AdvanceLoopInput implements InputResolverContract<Step, { loopId: string }> {
+  async resolve(state: Step): Promise<{ loopId: string }> {
+    return { loopId: state.loopId };
+  }
+}
+
+@InputResolver({ name: 'end-loop-input' })
+class EndLoopInput implements InputResolverContract<Step, { loopId: string; message: string }> {
+  async resolve(state: Step): Promise<{ loopId: string; message: string }> {
+    return { loopId: state.loopId, message: `Declined ${state.toolName}.` };
+  }
+}
+
+const breakpointPolicy: PolicyDefinition = {
+  rules: [
+    {
+      condition: 'needs-approval',
+      inputResolver: 'end-loop-input',
+      command: 'end-loop',
+      priority: 1,
+    },
+    {
+      condition: 'tool-call-requested',
+      inputResolver: 'advance-loop-input',
+      command: 'advance-loop',
+      priority: 10,
+    },
+  ],
+};
+
+initAgentModule();
+
+await applyPolicy(breakpointPolicy, {
+  loopId: loop.id,
+  toolName: 'shell',
+  toolArguments: JSON.stringify({ command: 'npm install' }),
+  approved: false,
+});
+```
+
+Register `shell` with `registerTool` before a rule advances a shell call. With `approved: false` the loop ends. With `approved: true`, only `tool-call-requested` matches, and `advanceLoop` runs the tool.
+
+<Cards>
+  <Card title="On a network" href="/agent/on-a-network" description="Join a Mozaik Network as a peer." />
+  <Card title="Rule engine" href="https://github.com/jigjoy-ai/mozaik-rule-engine" description="Decorators and PolicyDefinition." />
+</Cards>

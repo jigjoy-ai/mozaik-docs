@@ -1,0 +1,59 @@
+---
+title: Tool calls
+description: Register a tool and decide at the breakpoint whether it runs.
+icon: Wrench
+---
+
+After `initAgentModule()`, register the tool, then place a `tool_call` breakpoint. `advanceLoop` runs the registered tool. `endLoop` finishes the loop and leaves the tool unrun. A loop holds one pending instruction, so several tool calls run one at a time.
+
+```ts
+const { createAgent, createLoop, registerTool, setBreakpoint, advanceLoop, endLoop } = resolveAgentModule();
+
+const shell = {
+  name: 'shell',
+  description: 'Run a shell command and return its output.',
+  parameters: {
+    type: 'object',
+    properties: { command: { type: 'string' } },
+    required: ['command'],
+    additionalProperties: false,
+  },
+  strict: true,
+};
+
+registerTool('shell', {
+  invoke: ({ command }) => `(output of: ${command})`,
+});
+
+const agent = await createAgent({
+  name: 'assistant',
+  instruction: 'You are a coding assistant.',
+  tools: [shell],
+});
+
+const loop = await createLoop({ agentId: agent.id, goal: 'Update the project dependencies' });
+
+await setBreakpoint({
+  loopId: loop.id,
+  instruction: {
+    type: 'tool_call',
+    parameters: {
+      toolName: 'shell',
+      toolArguments: JSON.stringify({ command: 'npm install' }),
+    },
+  },
+});
+
+const approved = false;
+
+if (approved) {
+  await advanceLoop({ loopId: loop.id });
+} else {
+  await endLoop({ loopId: loop.id, message: 'Declined by the developer.' });
+}
+```
+
+<Cards>
+  <Card title="Policy" href="/agent/policy" description="Make the same decision with a rule." />
+  <Card title="Persistence" href="/agent/persistence" description="Keep the loop after the process stops." />
+</Cards>
